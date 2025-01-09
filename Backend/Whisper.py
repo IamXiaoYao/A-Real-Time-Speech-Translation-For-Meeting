@@ -21,14 +21,14 @@ class WhisperTransc:
         :param target_language: The target language code for translation. Defaults to 'en' (English).
         :return: The transcribed and translated text.
         """
-        self.play_notification_sound("notification-sound.wav")
+        self.play_notification_sound("./Sound/notification-sound.wav")
         print("Recording...")
         recording = sd.rec(
             int(duration * fs), samplerate=fs, channels=1, dtype="float32"
         )
         sd.wait()
         print("Recording Complete!")
-        self.play_notification_sound("notification-sound.wav")
+        self.play_notification_sound("./Sound/notification-sound.wav")
 
         wav.write("Recording.wav", fs, (recording * 32767).astype(np.int16))
 
