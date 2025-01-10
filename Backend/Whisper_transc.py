@@ -3,7 +3,8 @@ import numpy as np
 import scipy.io.wavfile as wav
 import sounddevice as sd
 import torch
-from transformers import WhisperForConditionalGeneration, WhisperProcessor
+from playsound import playsound
+from transformers import pipeline
 
 
 class WhisperTransc:
@@ -20,39 +21,48 @@ class WhisperTransc:
         sd.wait()
         print("Recording completed!")
 
-    def save_recording(self, file_name="Recording.wav"):
+    def audio_callback(self, indata, frames, time, status):
+        """
+        Callback to append recorded audio data to `self.recording`.
+        """
+        if self.is_recording:
+            self.recording.append(indata.copy())
+            if len(self.recording) * len(indata) >= self.chunk_size:
+                self.process_chunk()
+
+    def process_chunk(self):
+        """
+        Process a completed audio chunk for transcription.
+        """
+        if len(self.recording) * len(self.recording[0]) < self.chunk_size:
+            print("Not enough data for a full chunk. Skipping...")
+            return
+
+        audio_data = np.concatenate(self.recording[: self.chunk_size], axis=0)
+        self.recording = self.recording[self.chunk_size :]
+        print("Processing chunk for transcription...")
+        transcription = self.transcribe_audio(audio_data)
+
+        if hasattr(self, "update_callback"):
+            self.update_callback(transcription)
+
+    def stop_recording(self):
+        """
+        Stop recording audio.
+        """
+        self.is_recording = False
         if self.recording:
-            wav.write(file_name, self.fs, (self.recording * 32767).astype(np.int16))
-        else:
-            print("No recording found to save.")
+            print("Processing remaining audio...")
+            remaining_audio = np.concatenate(self.recording, axis=0)
+            transcription = self.transcribe_audio(remaining_audio)
+            print(f"Remaining transcription: {transcription}")
+            if hasattr(self, "update_callback"):
+                self.update_callback(transcription)
 
-    def transcribe(self, file_name="Recording.wav"):
+    def transcribe_audio(self, audio_data):
         """
-        Records audio and saves it to a specified file.
-        :param duration: Duration of recording in seconds.
-        :param fs: Sampling rate (default: 44100 Hz).
+        Transcribe a given audio data array using the Whisper pipeline.
         """
-        if not file_name:
-            print("No audio file provided for transcription.")
-            return ""
-        # Load and preprocess audio
-        audio_input, _ = librosa.load(file_name, sr=16000)
-        inputs = self.processor(
-            audio_input, sampling_rate=16000, return_tensors="pt", language="en"
-        )
-
-        # Transcription
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        self.model = self.model.to(device)
-        input_features = inputs.input_features.to(device)
-
-        generated_ids = self.model.generate(input_features)
-        transcription = self.processor.batch_decode(
-            generated_ids, skip_special_tokens=True
-        )
-        return transcription[0]
-
-
-# whisper_translator = WhisperTransc()
-# transcription = whisper_translator.transcribe()
-# print("Transcription:", transcription)
+        wav.write("Recording.wav", self.fs, (audio_data * 32767).astype(np.int16))
+        audio_input, _ = librosa.load("Recording.wav", sr=16000)
+        return self.pipeline(audio_input)["text"]
