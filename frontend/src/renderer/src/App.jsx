@@ -1,13 +1,13 @@
-import React, { useState } from "react";
-import { Mic, StopCircle, Upload, RefreshCw, FileText } from "lucide-react";
+import React, { useState } from 'react'
+import { Mic, StopCircle, Upload, RefreshCw, FileText } from 'lucide-react'
 
 function App() {
-  const [text, setText] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
+  const [text, setText] = useState('')
+  const [isRecording, setIsRecording] = useState(false)
 
   const handleRecord = () => {
-    setIsRecording(!isRecording);
-  };
+    setIsRecording(!isRecording)
+  }
 
   return (
     <div className="app">
@@ -19,9 +19,7 @@ function App() {
               <Mic />
             </div>
             <h1 className="title">VoiceFlow</h1>
-            <p className="subtitle">
-              Transform your speech into text instantly
-            </p>
+            <p className="subtitle">Transform your speech into text instantly</p>
             <p className="subtitle">
               By <strong>Xiao Yao</strong>
             </p>
@@ -52,12 +50,10 @@ function App() {
               <div className="controls-left">
                 <button
                   onClick={handleRecord}
-                  className={`btn btn-primary ${
-                    isRecording ? "recording" : ""
-                  }`}
+                  className={`btn btn-primary ${isRecording ? 'recording' : ''}`}
                 >
                   {isRecording ? <StopCircle /> : <Mic />}
-                  {isRecording ? "Stop" : "Start Recording"}
+                  {isRecording ? 'Stop' : 'Start Recording'}
                 </button>
 
                 <button className="btn btn-icon">
@@ -79,7 +75,7 @@ function App() {
           </div>
 
           {/* Features */}
-          <div className="features">
+          {/*           <div className="features">
             <div className="feature-card">
               <h3 className="feature-title">Real-time Transcription</h3>
               <p className="feature-description">
@@ -88,21 +84,17 @@ function App() {
             </div>
             <div className="feature-card">
               <h3 className="feature-title">Multiple Languages</h3>
-              <p className="feature-description">
-                Support for various languages and accents
-              </p>
+              <p className="feature-description">Support for various languages and accents</p>
             </div>
             <div className="feature-card">
               <h3 className="feature-title">Smart Punctuation</h3>
-              <p className="feature-description">
-                Automatic punctuation and formatting
-              </p>
+              <p className="feature-description">Automatic punctuation and formatting</p>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>
-  );
+  )
 }
 
-export default App;
+export default App
