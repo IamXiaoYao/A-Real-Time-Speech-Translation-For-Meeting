@@ -3,7 +3,6 @@ import numpy as np
 import scipy.io.wavfile as wav
 import sounddevice as sd
 import torch
-from playsound import playsound
 from transformers import pipeline
 
 
