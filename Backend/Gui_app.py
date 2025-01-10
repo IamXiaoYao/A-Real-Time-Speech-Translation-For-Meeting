@@ -41,10 +41,6 @@ recording_thread = None
 is_recording = False
 
 
-def update_transcription(transcription):
-    root.after(0, lambda: transcription_text.insert(tk.END, transcription + "\n"))
-
-
 def start_recording():
     """
     Start recording audio. This function is triggered when the Record button is clicked.
@@ -53,48 +49,28 @@ def start_recording():
     if not is_recording:  # Prevent multiple threads
         is_recording = True
         wave_label.config(text="Detecting sound waves...")
-        transcriber.update_callback = update_transcription
-        recording_thread = threading.Thread(target=transcriber.record_audio)
+        recording_thread = threading.Thread(target=transcriber.record_audio, args=(10,))
         recording_thread.start()
 
 
 def stop_recording():
     """
-    Stop recording audio, process chunks, and display the aggregated transcription.
+    Stop recording audio, save it, and transcribe the recording.
+    This function is triggered when the Stop button is clicked.
     """
-    global is_recording
+    global recording_thread, is_recording
     if is_recording:
-        transcriber.stop_recording()  # Stops recording and processes remaining chunks
+        recording_thread.join()  # Wait for recording to finish
         is_recording = False
         wave_label.config(text="Waiting for sound waves...")
         try:
+            transcriber.save_recording()  # Save the audio file
+            transcription = transcriber.transcribe()  # Perform transcription
             transcription_text.delete("1.0", tk.END)
-            transcription_text.insert(tk.END, "Transcription complete! Check console.")
+            transcription_text.insert(tk.END, transcription)
         except Exception as e:
             transcription_text.delete("1.0", tk.END)
-            transcription_text.insert(tk.END, f"Error: {e}")
-
-
-
-# def stop_recording():
-#     """
-#     Stop recording audio, save it, and transcribe the recording.
-#     This function is triggered when the Stop button is clicked.
-#     """
-#     global recording_thread, is_recording
-#     if is_recording:
-#         recording_thread.join()  # Wait for recording to finish
-#         is_recording = False
-#         wave_label.config(text="Waiting for sound waves...")
-#         try:
-#             transcriber.save_recording()  # Save the audio file
-#             transcription = transcriber.transcribe()  # Perform transcription
-#             transcription_text.delete("1.0", tk.END)
-#             transcription_text.insert(tk.END, transcription)
-#         except Exception as e:
-#             transcription_text.delete("1.0", tk.END)
-#             transcription_text.insert(tk.END, f"Error during transcription: {e}")
-
+            transcription_text.insert(tk.END, f"Error during transcription: {e}")
 
 
 # Buttons
