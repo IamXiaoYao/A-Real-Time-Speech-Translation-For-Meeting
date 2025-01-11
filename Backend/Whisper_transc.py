@@ -8,16 +8,36 @@ from transformers import pipeline
 
 class WhisperTransc:
     def __init__(self, model_name="openai/whisper-small"):
-        self.processor = WhisperProcessor.from_pretrained(model_name)
-        self.model = WhisperForConditionalGeneration.from_pretrained(model_name)
         self.fs = 44100
-        self.recording = None
-    def record_audio(self, duration):
-        print("Recording...")
-        self.recording = sd.rec(
-            int(duration * self.fs), samplerate=self.fs, channels=1, dtype="float32"
+        self.chunk_duration = 10  # seconds
+        self.chunk_size = self.fs * self.chunk_duration
+        self.recording = []
+        self.is_recording = False
+
+        # Initialize the Whisper pipeline with chunking enabled
+        self.pipeline = pipeline(
+            "automatic-speech-recognition",
+            model=model_name,
+            chunk_length_s=self.chunk_duration,
+            return_timestamps=True,
+            device=0 if torch.cuda.is_available() else -1,
         )
-        sd.wait()
+
+    def record_audio(self):
+        """
+        Start recording audio until `stop_recording` is called.
+        """
+        print("Recording...")
+        self.is_recording = True
+        self.recording = []
+        with sd.InputStream(
+            samplerate=self.fs,
+            channels=1,
+            callback=self.audio_callback,
+            dtype="float32",
+        ):
+            while self.is_recording:
+                sd.sleep(100)
         print("Recording completed!")
 
     def audio_callback(self, indata, frames, time, status):
