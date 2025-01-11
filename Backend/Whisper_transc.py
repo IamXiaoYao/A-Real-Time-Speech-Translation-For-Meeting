@@ -9,7 +9,7 @@ from transformers import pipeline
 class WhisperTransc:
     def __init__(self, model_name="openai/whisper-small"):
         self.fs = 44100
-        self.chunk_duration = 10  # seconds
+        self.chunk_duration = 5  # seconds
         self.chunk_size = self.fs * self.chunk_duration
         self.recording = []
         self.is_recording = False
@@ -46,19 +46,25 @@ class WhisperTransc:
         """
         if self.is_recording:
             self.recording.append(indata.copy())
-            if len(self.recording) * len(indata) >= self.chunk_size:
+            total_frames = sum(len(chunk) for chunk in self.recording)
+            if total_frames >= self.chunk_size:
                 self.process_chunk()
 
     def process_chunk(self):
         """
         Process a completed audio chunk for transcription.
         """
-        if len(self.recording) * len(self.recording[0]) < self.chunk_size:
+        total_frames = sum(len(chunk) for chunk in self.recording)
+        if total_frames < self.chunk_size:
             print("Not enough data for a full chunk. Skipping...")
             return
 
-        audio_data = np.concatenate(self.recording[: self.chunk_size], axis=0)
-        self.recording = self.recording[self.chunk_size :]
+        # audio_data = np.concatenate(self.recording[: self.chunk_size], axis=0)
+        # self.recording = self.recording[self.chunk_size :]
+        audio_data = np.concatenate(
+            self.recording[: self.chunk_size // len(self.recording[0])], axis=0
+        )
+        self.recording = self.recording[self.chunk_size // len(self.recording[0]) :]
         print("Processing chunk for transcription...")
         transcription = self.transcribe_audio(audio_data)
 
@@ -80,8 +86,29 @@ class WhisperTransc:
 
     def transcribe_audio(self, audio_data):
         """
-        Transcribe a given audio data array using the Whisper pipeline.
+        Transcribe a given audio data array using the Whisper pipeline without file I/O.
         """
-        wav.write("Recording.wav", self.fs, (audio_data * 32767).astype(np.int16))
-        audio_input, _ = librosa.load("Recording.wav", sr=16000)
-        return self.pipeline(audio_input)["text"]
+        try:
+            # Resample the audio data to 16 kHz (required by Whisper)
+            audio_data_resampled = librosa.resample(
+                y=audio_data.flatten(), orig_sr=self.fs, target_sr=16000
+            )
+
+            # Whisper expects the audio input as a numpy array normalized to the range [-1, 1]
+            transcription = self.pipeline(audio_data_resampled)["text"]
+            return transcription
+        except Exception as e:
+            print(f"Error during transcription: {e}")
+            return "Transcription error occurred."
+
+    def transcribe(self, audio_file_path):
+        """
+        For uploding audio file
+        """
+        try:
+            audio_input, _ = librosa.load(audio_file_path, sr=16000)
+            transcription = self.pipeline(audio_input, batch_size=8)["text"]
+            return transcription
+        except Exception as e:
+            print(f"Error transcribing audio file: {e}")
+            return "Error processing the audio file."
