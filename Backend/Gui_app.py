@@ -1,6 +1,6 @@
 import threading
 import tkinter as tk
-from tkinter import ttk
+from tkinter import filedialog, ttk
 
 from Whisper_transc import WhisperTransc
 
@@ -9,7 +9,7 @@ transcriber = WhisperTransc()
 
 # Tkinter root window
 root = tk.Tk()
-root.title("Speech Translation GUI")
+root.title("Real-time Speech Translation")
 
 # Frames
 left_frame = tk.Frame(root, width=400, height=300, bg="white")
@@ -18,14 +18,17 @@ left_frame.pack(side="left", fill="both", expand=True)
 right_frame.pack(side="right", fill="both", expand=True)
 
 # Buttons
-button_frame = tk.Frame(root)
-button_frame.pack(side="bottom", fill="x")
+button_frame = tk.Frame(left_frame, bg="white", height=40)
+button_frame.pack(side="top", fill="x")
 
 # Left Window: Sound wave detection label
 wave_label = tk.Label(
-    left_frame, text="Waiting for sound waves...", font=("Arial", 14), bg="white"
+    left_frame, text="Sound wave detection", font=("Arial", 14), bg="white"
 )
-wave_label.pack(expand=True)
+wave_label.pack(pady=5)
+
+Sound_wave_area = tk.Text(left_frame, wrap="word", width=50)
+Sound_wave_area.pack(expand=True)
 
 # Right Window: Transcription text area
 transcription_label = tk.Label(
@@ -33,8 +36,9 @@ transcription_label = tk.Label(
 )
 transcription_label.pack(pady=10)
 
-transcription_text = tk.Text(right_frame, wrap="word", height=10, width=50)
-transcription_text.pack(padx=10, pady=10)
+transcription_text = tk.Text(right_frame, wrap="word", width=50)
+transcription_text.pack(expand=True)
+
 
 # Global variables
 recording_thread = None
@@ -48,6 +52,26 @@ def update_transcription(transcription):
     """
     transcription_text.insert(tk.END, transcription + "\n")
     transcription_text.see(tk.END)  # Automatically scroll to the latest transcription
+
+
+def upload_recording_button():
+    try:
+        audio_file_path = filedialog.askopenfilename(
+            filetypes=[("Audio Files", "*.wav *.mp3 *.m4a *.ogg")]
+        )
+        if not audio_file_path:
+            return
+        # Transcribe the uploaded audio file
+        transcription = transcriber.transcribe(audio_file_path)
+
+        # Display the transcription
+        transcription_text.insert(tk.END, transcription + "\n")
+        transcription_text.see(
+            tk.END
+        )  # Automatically scroll to the latest transcription
+
+    except Exception as e:
+        print(f"Error uploading or transcribing the file: {e}")
 
 
 def start_recording_button():
@@ -75,7 +99,6 @@ def stop_recording_button():
     This function is triggered when the Stop button is clicked.
     """
     transcriber.play_notification_sound(sound_file)
-
     global is_recording
     if is_recording:
         is_recording = False
@@ -84,10 +107,12 @@ def stop_recording_button():
 
 
 # Buttons
+upload_button = ttk.Button(button_frame, text="Upload", command=upload_recording_button)
 record_button = ttk.Button(button_frame, text="Record", command=start_recording_button)
 stop_button = ttk.Button(button_frame, text="Stop", command=stop_recording_button)
-record_button.pack(side="left", padx=10, pady=10)
-stop_button.pack(side="left", padx=10, pady=10)
+upload_button.pack(side="left", padx=10, pady=10, expand=True)
+record_button.pack(side="left", padx=10, pady=10, expand=True)
+stop_button.pack(side="left", padx=10, pady=10, expand=True)
 
 
 # Run Tkinter main loop

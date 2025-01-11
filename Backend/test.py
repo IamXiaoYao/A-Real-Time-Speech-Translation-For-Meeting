@@ -37,3 +37,11 @@ class WhisperTransc:
 whisper_translator = WhisperTransc()
 transcription = whisper_translator.transcribe()
 print("Transcription:", transcription)
+
+# def transcribe_audio(self, audio_data):
+#     """
+#     Transcribe a given audio data array using the Whisper pipeline.
+#     """
+#     wav.write("Recording.wav", self.fs, (audio_data * 32767).astype(np.int16))
+#     audio_input, _ = librosa.load("Recording.wav", sr=16000)
+#     return self.pipeline(audio_input)["text"]
