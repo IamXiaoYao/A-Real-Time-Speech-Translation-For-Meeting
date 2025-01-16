@@ -8,9 +8,9 @@ from transformers import pipeline
 
 
 class WhisperTransc:
-    def __init__(self, model_name="openai/whisper-small"):
+    def __init__(self, model_name="openai/whisper-base.en"):
         self.fs = 44100
-        self.chunk_duration = 5  # seconds
+        self.chunk_duration = 2  # seconds
         self.chunk_size = self.fs * self.chunk_duration
         self.recording = []
         self.is_recording = False
@@ -65,10 +65,12 @@ class WhisperTransc:
 
         # audio_data = np.concatenate(self.recording[: self.chunk_size], axis=0)
         # self.recording = self.recording[self.chunk_size :]
+
         audio_data = np.concatenate(
             self.recording[: self.chunk_size // len(self.recording[0])], axis=0
         )
         self.recording = self.recording[self.chunk_size // len(self.recording[0]) :]
+
         print("Processing chunk for transcription...")
         transcription = self.transcribe_audio(audio_data)
 
@@ -80,8 +82,12 @@ class WhisperTransc:
         Stop recording audio.
         """
         self.is_recording = False
+        print("Stopping recording and processing remaining audio...")
+
+        while sum(len(chunk) for chunk in self.recording) >= self.chunk_size:
+            self.process_chunk()
+
         if self.recording:
-            print("Processing remaining audio...")
             remaining_audio = np.concatenate(self.recording, axis=0)
             transcription = self.transcribe_audio(remaining_audio)
             print(f"Remaining transcription: {transcription}")
@@ -93,13 +99,12 @@ class WhisperTransc:
         Transcribe a given audio data array using the Whisper pipeline without file I/O.
         """
         try:
-            # Resample the audio data to 16 kHz (required by Whisper)
             audio_data_resampled = librosa.resample(
                 y=audio_data.flatten(), orig_sr=self.fs, target_sr=16000
             )
 
             # Whisper expects the audio input as a numpy array normalized to the range [-1, 1]
-            transcription = self.pipeline(audio_data_resampled)["text"]
+            transcription = self.pipeline(audio_data_resampled, batch_size=8)["text"]
             return transcription
         except Exception as e:
             print(f"Error during transcription: {e}")

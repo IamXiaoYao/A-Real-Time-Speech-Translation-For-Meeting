@@ -9,7 +9,7 @@ transcriber = WhisperTransc()
 
 # Tkinter root window
 root = tk.Tk()
-root.title("Real-time Speech Translation")
+root.title("Real-time Speech Transription")
 
 # Frames
 left_frame = tk.Frame(root, width=400, height=300, bg="white")
@@ -21,14 +21,15 @@ right_frame.pack(side="right", fill="both", expand=True)
 button_frame = tk.Frame(left_frame, bg="white", height=40)
 button_frame.pack(side="top", fill="x")
 
-# Left Window: Sound wave detection label
 wave_label = tk.Label(
-    left_frame, text="Sound wave detection", font=("Arial", 14), bg="white"
+    left_frame,
+    text="Welcome! Please select an option:\nUpload or Record audio.",
+    font=("Arial", 14),
+    bg="white",
+    anchor="center",
 )
-wave_label.pack(pady=5)
+wave_label.pack(expand=True, fill="both")
 
-Sound_wave_area = tk.Text(left_frame, wrap="word", width=50)
-Sound_wave_area.pack(expand=True)
 
 # Right Window: Transcription text area
 transcription_label = tk.Label(
@@ -36,9 +37,18 @@ transcription_label = tk.Label(
 )
 transcription_label.pack(pady=10)
 
-transcription_text = tk.Text(right_frame, wrap="word", width=50)
-transcription_text.pack(expand=True)
+text_frame = tk.Frame(right_frame, bg="lightgrey")
+text_frame.pack(side="top", fill="both", expand=True)
 
+transcription_text = tk.Text(text_frame, wrap="word", width=50, height=8)
+transcription_text.pack(side="left", fill="both", expand=True)
+
+scrollbar = ttk.Scrollbar(
+    text_frame, orient="vertical", command=transcription_text.yview
+)
+scrollbar.pack(side="right", fill="y")
+
+transcription_text.configure(yscrollcommand=scrollbar.set)
 
 # Global variables
 recording_thread = None
@@ -55,6 +65,7 @@ def update_transcription(transcription):
 
 
 def upload_recording_button():
+    transcription_text.delete("1.0", tk.END)
     try:
         audio_file_path = filedialog.askopenfilename(
             filetypes=[("Audio Files", "*.wav *.mp3 *.m4a *.ogg")]
@@ -86,7 +97,7 @@ def start_recording_button():
     global recording_thread, is_recording
     if not is_recording:  # Prevent multiple threads
         is_recording = True
-        wave_label.config(text="Detecting sound waves...")
+        wave_label.config(text="Now recording... Please speak clearly.")
         transcription_text.delete("1.0", tk.END)
         transcriber.update_callback = update_transcription
         recording_thread = threading.Thread(target=transcriber.record_audio)
@@ -102,8 +113,10 @@ def stop_recording_button():
     global is_recording
     if is_recording:
         is_recording = False
+        # wave_label.config(text="Recording stopped. Processing audio...")
         transcriber.stop_recording()
-        wave_label.config(text="Waiting for sound waves...")
+        # wave_label.config(text="Waiting for sound waves...")
+        wave_label.config(text="Recording stopped. Processing audio...")
 
 
 # Buttons
