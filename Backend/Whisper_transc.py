@@ -1,6 +1,5 @@
 import librosa
 import numpy as np
-import scipy.io.wavfile as wav
 import sounddevice as sd
 import torch
 from playsound import playsound
@@ -10,9 +9,13 @@ from transformers import pipeline
 class WhisperTransc:
     def __init__(self, model_name="openai/whisper-base.en"):
         self.fs = 44100
-        self.chunk_duration = 2  # seconds
-        self.chunk_size = self.fs * self.chunk_duration
-        self.recording = []
+        self.chunk_duration = 3  # chunk seconds
+        self.chunk_size = int(self.fs * self.chunk_duration)
+
+        self.overlap_seconds = 1  # overlap
+        self.overlap_frames = int(self.fs * self.overlap_seconds)
+
+        self.buffer = np.array([], dtype=np.float32)
         self.is_recording = False
 
         # Initialize the Whisper pipeline with chunking enabled
@@ -33,7 +36,7 @@ class WhisperTransc:
         """
         print("Recording...")
         self.is_recording = True
-        self.recording = []
+        self.buffer = np.array([], dtype=np.float32)
         with sd.InputStream(
             samplerate=self.fs,
             channels=1,
@@ -49,28 +52,18 @@ class WhisperTransc:
         Callback to append recorded audio data to `self.recording`.
         """
         if self.is_recording:
-            self.recording.append(indata.copy())
-            total_frames = sum(len(chunk) for chunk in self.recording)
-            if total_frames >= self.chunk_size:
-                self.process_chunk()
+            self.buffer = np.concatenate((self.buffer, indata.flatten()))
 
-    def process_chunk(self):
+            while len(self.buffer) >= self.chunk_size:
+                chunk_data = self.buffer[: self.chunk_size]
+                self.process_chunk(chunk_data)
+                start_idx = self.chunk_size - self.overlap_frames
+                self.buffer = self.buffer[start_idx:]
+
+    def process_chunk(self, audio_data):
         """
-        Process a completed audio chunk for transcription.
+        Transcribe this chunk of audio_data and pass it to the callback if exists.
         """
-        total_frames = sum(len(chunk) for chunk in self.recording)
-        if total_frames < self.chunk_size:
-            print("Not enough data for a full chunk. Skipping...")
-            return
-
-        # audio_data = np.concatenate(self.recording[: self.chunk_size], axis=0)
-        # self.recording = self.recording[self.chunk_size :]
-
-        audio_data = np.concatenate(
-            self.recording[: self.chunk_size // len(self.recording[0])], axis=0
-        )
-        self.recording = self.recording[self.chunk_size // len(self.recording[0]) :]
-
         print("Processing chunk for transcription...")
         transcription = self.transcribe_audio(audio_data)
 
@@ -84,15 +77,20 @@ class WhisperTransc:
         self.is_recording = False
         print("Stopping recording and processing remaining audio...")
 
-        while sum(len(chunk) for chunk in self.recording) >= self.chunk_size:
-            self.process_chunk()
+        while len(self.buffer) >= self.chunk_size:
+            # Extract the first chunk_size frames
+            chunk_data = self.buffer[: self.chunk_size]
+            self.process_chunk(chunk_data)
+            start_idx = self.chunk_size - self.overlap_frames
+            self.buffer = self.buffer[start_idx:]
 
-        if self.recording:
-            remaining_audio = np.concatenate(self.recording, axis=0)
-            transcription = self.transcribe_audio(remaining_audio)
-            print(f"Remaining transcription: {transcription}")
+        if len(self.buffer) > 0:
+            print("Processing leftover audio (smaller than one chunk)...")
+            transcription = self.transcribe_audio(self.buffer)
             if hasattr(self, "update_callback"):
                 self.update_callback(transcription)
+
+        self.buffer = np.array([], dtype=np.float32)
 
     def transcribe_audio(self, audio_data):
         """

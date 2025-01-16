@@ -53,7 +53,7 @@ transcription_text.configure(yscrollcommand=scrollbar.set)
 # Global variables
 recording_thread = None
 is_recording = False
-sound_file = "./Sound/notification-sound.wav"
+sound_file = "./Backend/Sound/notification-sound.wav"
 
 
 def update_transcription(transcription):
