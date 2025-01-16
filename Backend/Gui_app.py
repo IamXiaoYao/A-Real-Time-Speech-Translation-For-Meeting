@@ -1,8 +1,12 @@
 import threading
 import tkinter as tk
+import warnings
 from tkinter import filedialog, ttk
 
 from Whisper_transc import WhisperTransc
+
+warnings.simplefilter("ignore", FutureWarning)
+
 
 # Initialize WhisperTransc
 transcriber = WhisperTransc()

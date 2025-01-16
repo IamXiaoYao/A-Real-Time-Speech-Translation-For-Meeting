@@ -102,7 +102,9 @@ class WhisperTransc:
             )
 
             # Whisper expects the audio input as a numpy array normalized to the range [-1, 1]
-            transcription = self.pipeline(audio_data_resampled, batch_size=8)["text"]
+            transcription = self.pipeline(inputs=audio_data_resampled, batch_size=8)[
+                "text"
+            ]
             return transcription
         except Exception as e:
             print(f"Error during transcription: {e}")
