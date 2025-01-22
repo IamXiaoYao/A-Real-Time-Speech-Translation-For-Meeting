@@ -1,10 +1,12 @@
+import json
+import sys
+
 import librosa
 import numpy as np
 import sounddevice as sd
 import torch
-import sys
-import json
 from transformers import pipeline
+
 
 class WhisperTransc:
     def __init__(self, model_name="openai/whisper-base.en"):
@@ -118,6 +120,7 @@ class WhisperTransc:
         except Exception as e:
             print(f"Error transcribing audio file: {e}")
             return "Error processing the audio file."
+
 
 def main():
     whisper = WhisperTransc()

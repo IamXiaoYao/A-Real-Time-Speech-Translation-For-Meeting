@@ -106,6 +106,11 @@ def stop_recording_button():
     Stop recording audio, save it, and transcribe the recording.
     This function is triggered when the Stop button is clicked.
     """
+    try:
+        transcriber.play_notification_sound(sound_file)
+    except Exception as e:
+        print(f"Error playing notification sound: {e}")
+
     global is_recording
     if is_recording:
         is_recording = False
