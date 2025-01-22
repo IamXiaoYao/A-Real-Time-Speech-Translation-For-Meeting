@@ -5,9 +5,6 @@ from tkinter import filedialog, ttk
 
 from Whisper_transc import WhisperTransc
 
-warnings.simplefilter("ignore", FutureWarning)
-
-
 # Initialize WhisperTransc
 transcriber = WhisperTransc()
 
@@ -93,10 +90,6 @@ def start_recording_button():
     """
     Start recording audio. This function is triggered when the Record button is clicked.
     """
-    try:
-        transcriber.play_notification_sound(sound_file)
-    except Exception as e:
-        print(f"Error playing notification sound: {e}")
 
     global recording_thread, is_recording
     if not is_recording:  # Prevent multiple threads
@@ -113,7 +106,6 @@ def stop_recording_button():
     Stop recording audio, save it, and transcribe the recording.
     This function is triggered when the Stop button is clicked.
     """
-    transcriber.play_notification_sound(sound_file)
     global is_recording
     if is_recording:
         is_recording = False

@@ -4,8 +4,10 @@ const path = require("path");
 const utils = require("@electron-toolkit/utils");
 const icon = path.join(__dirname, "../../resources/icon.png");
 const { spawn } = require("child_process");
+let mainWindow;
 function createWindow() {
-  const mainWindow2 = new electron.BrowserWindow({
+  mainWindow = new electron.BrowserWindow({
+    // ✅ Assign to global mainWindow
     width: 900,
     height: 670,
     minWidth: 900,
@@ -24,7 +26,6 @@ function createWindow() {
   const template = [
     {
       label: electron.app.name,
-      // Use the app name dynamically
       submenu: [
         { role: "about" },
         { type: "separator" },
@@ -86,38 +87,24 @@ function createWindow() {
   ];
   const menu = electron.Menu.buildFromTemplate(template);
   electron.Menu.setApplicationMenu(menu);
-  mainWindow2.on("ready-to-show", () => {
-    mainWindow2.show();
+  mainWindow.on("ready-to-show", () => {
+    mainWindow.show();
   });
-  mainWindow2.webContents.setWindowOpenHandler((details) => {
+  mainWindow.webContents.setWindowOpenHandler((details) => {
     electron.shell.openExternal(details.url);
     return { action: "deny" };
   });
-  mainWindow2.webContents.on("before-input-event", (event, input) => {
+  mainWindow.webContents.on("before-input-event", (event, input) => {
     if (input.type === "keyDown" && (input.key === "ArrowDown" || input.key === "ArrowUp")) {
       event.preventDefault();
     }
   });
-  electron.app.setName("VoiceFlow");
   if (utils.is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-    mainWindow2.loadURL(process.env["ELECTRON_RENDERER_URL"]);
+    mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
-    mainWindow2.loadFile(path.join(__dirname, "../renderer/index.html"));
+    mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
   }
 }
-const pythonProcess = spawn("python", ["src/whisper/Whisper_transc.py"]);
-pythonProcess.stdout.on("data", (data) => {
-  const message = data.toString();
-  console.log("Python Output:", message);
-  mainWindow.webContents.send("python-response", JSON.parse(message));
-});
-pythonProcess.stderr.on("data", (data) => {
-  console.error("Python Error:", data.toString());
-});
-electron.ipcMain.on("call-python", (event, { command, args, kwargs }) => {
-  const request = JSON.stringify({ command, args, kwargs });
-  pythonProcess.stdin.write(request + "\n");
-});
 electron.app.whenReady().then(() => {
   utils.electronApp.setAppUserModelId("com.electron");
   electron.app.on("browser-window-created", (_, window) => {
@@ -125,6 +112,24 @@ electron.app.whenReady().then(() => {
   });
   electron.ipcMain.on("ping", () => console.log("pong"));
   createWindow();
+  const pythonProcess = spawn("python", ["src/whisper/Whisper_transc.py"]);
+  pythonProcess.stdout.on("data", (data) => {
+    const message = data.toString();
+    console.log("Python Output:", message);
+    if (mainWindow) {
+      mainWindow.webContents.send("python-response", JSON.parse(message));
+    } else {
+      console.error("mainWindow is not available to send data.");
+    }
+  });
+  pythonProcess.stderr.on("data", (data) => {
+    console.error("Python Error:", data.toString());
+  });
+  electron.ipcMain.on("call-python", (event, { command, args, kwargs }) => {
+    console.log(command);
+    const request = JSON.stringify({ command, args, kwargs });
+    pythonProcess.stdin.write(request + "\n");
+  });
   electron.app.on("activate", function() {
     if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();
   });
