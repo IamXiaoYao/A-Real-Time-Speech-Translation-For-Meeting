@@ -1,13 +1,77 @@
-import React, { useState } from 'react'
-import { Mic, StopCircle, Upload, RefreshCw, FileText } from 'lucide-react'
+import React, { useState, useEffect } from "react";
+import { Mic, StopCircle, Upload, RefreshCw, FileText } from "lucide-react";
 
 function App() {
-  const [text, setText] = useState('')
-  const [isRecording, setIsRecording] = useState(false)
+  const [text, setText] = useState(""); // For transcription text
+  const [isRecording, setIsRecording] = useState(false); // Recording state
+  const [transcription, setTranscription] = useState(""); // For real-time updates
+  const [error, setError] = useState(""); // For error handling
+
+  useEffect(() => {
+    // Set up a listener for Python's responses
+    const handlePythonResponse = (response) => {
+      if (response.error) {
+        setError(response.error);
+      } else if (response.result) {
+        // Append the new transcription to the existing text
+        setTranscription((prev) => `${prev}\n${response.result}`);
+      }
+    };
+
+    // Add the response listener
+    if (window.pythonAPI) {
+      window.pythonAPI.onResponse(handlePythonResponse);
+    } else {
+      console.error("pythonAPI is not available");
+    }
+
+    // Cleanup listener on component unmount
+    return () => {
+      if (window.pythonAPI) {
+        window.pythonAPI.onResponse(() => {}); // Clear the listener
+      }
+    };
+  }, []);
 
   const handleRecord = () => {
-    setIsRecording(!isRecording)
-  }
+    setError("");
+    setTranscription("");
+    if (isRecording) {
+      // Stop recording
+      setIsRecording(false);
+      window.pythonAPI.call("stop_recording");
+    } else {
+      // Start recording
+      setIsRecording(true);
+      setText("");
+      window.pythonAPI.call("record_audio");
+    }
+  };
+
+  const handleUpload = async () => {
+    setError("");
+    try {
+      const file = await window.showOpenFilePicker({
+        types: [
+          {
+            description: "Audio Files",
+            accept: {
+              "audio/*": [".wav", ".mp3", ".m4a", ".ogg"],
+            },
+          },
+        ],
+        multiple: false,
+      });
+
+      if (file.length > 0) {
+        const filePath = await file[0].getFile();
+        window.pythonAPI.call("transcribe", [filePath.path]);
+      }
+    } catch (err) {
+      console.error("Error uploading file:", err);
+      setError("Failed to upload the file.");
+    }
+  };
 
   return (
     <div className="app">
@@ -19,9 +83,8 @@ function App() {
               <Mic />
             </div>
             <h1 className="title">VoiceFlow</h1>
-            <p className="subtitle">Transform your speech into text instantly</p>
             <p className="subtitle">
-              By <strong>Xiao Yao</strong>
+              Transform your speech into text instantly
             </p>
           </header>
 
@@ -39,62 +102,38 @@ function App() {
             </div>
 
             <textarea
-              value={text}
+              value={transcription || "Your transcription will appear here..."}
               readOnly
-              placeholder="Your speech will appear here..."
               className="textarea"
             />
+
+            {/* Error Message */}
+            {error && <p className="error-message">{error}</p>}
 
             {/* Controls */}
             <div className="controls">
               <div className="controls-left">
                 <button
                   onClick={handleRecord}
-                  className={`btn btn-primary ${isRecording ? 'recording' : ''}`}
+                  className={`btn btn-primary ${isRecording ? "recording" : ""}`}
                 >
                   {isRecording ? <StopCircle /> : <Mic />}
-                  {isRecording ? 'Stop' : 'Start Recording'}
-                </button>
-
-                <button className="btn btn-icon">
-                  <RefreshCw />
+                  {isRecording ? "Stop" : "Start Recording"}
                 </button>
               </div>
 
               <div className="controls-right">
-                <button className="btn btn-icon">
-                  <FileText />
-                  <span>Copy</span>
-                </button>
-                <button className="btn btn-icon">
+                <button onClick={handleUpload} className="btn btn-icon">
                   <Upload />
                   <span>Upload</span>
                 </button>
               </div>
             </div>
           </div>
-
-          {/* Features */}
-          {/*           <div className="features">
-            <div className="feature-card">
-              <h3 className="feature-title">Real-time Transcription</h3>
-              <p className="feature-description">
-                Instantly convert your speech to text with high accuracy
-              </p>
-            </div>
-            <div className="feature-card">
-              <h3 className="feature-title">Multiple Languages</h3>
-              <p className="feature-description">Support for various languages and accents</p>
-            </div>
-            <div className="feature-card">
-              <h3 className="feature-title">Smart Punctuation</h3>
-              <p className="feature-description">Automatic punctuation and formatting</p>
-            </div>
-          </div> */}
         </div>
       </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;

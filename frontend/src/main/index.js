@@ -1,5 +1,6 @@
 import { app, shell, BrowserWindow, ipcMain, Menu } from 'electron'
 import { join } from 'path'
+const { spawn } = require('child_process');
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 
@@ -107,7 +108,22 @@ function createWindow() {
     mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
   }
 }
+const pythonProcess = spawn('python', ['src/whisper/Whisper_transc.py']);
 
+pythonProcess.stdout.on('data', (data) => {
+  const message = data.toString();
+  console.log('Python Output:', message);
+  mainWindow.webContents.send('python-response', JSON.parse(message));
+});
+
+pythonProcess.stderr.on('data', (data) => {
+  console.error('Python Error:', data.toString());
+});
+
+ipcMain.on('call-python', (event, { command, args, kwargs }) => {
+  const request = JSON.stringify({ command, args, kwargs });
+  pythonProcess.stdin.write(request + '\n');
+});
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
