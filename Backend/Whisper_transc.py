@@ -1,6 +1,5 @@
 import librosa
 import numpy as np
-import scipy.io.wavfile as wav
 import sounddevice as sd
 import torch
 import sys
@@ -8,11 +7,15 @@ import json
 from transformers import pipeline
 
 class WhisperTransc:
-    def __init__(self, model_name="openai/whisper-small"):
+    def __init__(self, model_name="openai/whisper-base.en"):
         self.fs = 44100
-        self.chunk_duration = 5  # seconds
-        self.chunk_size = self.fs * self.chunk_duration
-        self.recording = []
+        self.chunk_duration = 3  # chunk seconds
+        self.chunk_size = int(self.fs * self.chunk_duration)
+
+        self.overlap_seconds = 1  # overlap
+        self.overlap_frames = int(self.fs * self.overlap_seconds)
+
+        self.buffer = np.array([], dtype=np.float32)
         self.is_recording = False
 
         # Initialize the Whisper pipeline with chunking enabled
@@ -30,7 +33,7 @@ class WhisperTransc:
         """
         print("Recording...")
         self.is_recording = True
-        self.recording = []
+        self.buffer = np.array([], dtype=np.float32)
         with sd.InputStream(
             samplerate=self.fs,
             channels=1,
@@ -46,26 +49,18 @@ class WhisperTransc:
         Callback to append recorded audio data to `self.recording`.
         """
         if self.is_recording:
-            self.recording.append(indata.copy())
-            total_frames = sum(len(chunk) for chunk in self.recording)
-            if total_frames >= self.chunk_size:
-                self.process_chunk()
+            self.buffer = np.concatenate((self.buffer, indata.flatten()))
 
-    def process_chunk(self):
-        """
-        Process a completed audio chunk for transcription.
-        """
-        total_frames = sum(len(chunk) for chunk in self.recording)
-        if total_frames < self.chunk_size:
-            print("Not enough data for a full chunk. Skipping...")
-            return
+            while len(self.buffer) >= self.chunk_size:
+                chunk_data = self.buffer[: self.chunk_size]
+                self.process_chunk(chunk_data)
+                start_idx = self.chunk_size - self.overlap_frames
+                self.buffer = self.buffer[start_idx:]
 
-        # audio_data = np.concatenate(self.recording[: self.chunk_size], axis=0)
-        # self.recording = self.recording[self.chunk_size :]
-        audio_data = np.concatenate(
-            self.recording[: self.chunk_size // len(self.recording[0])], axis=0
-        )
-        self.recording = self.recording[self.chunk_size // len(self.recording[0]) :]
+    def process_chunk(self, audio_data):
+        """
+        Transcribe this chunk of audio_data and pass it to the callback if exists.
+        """
         print("Processing chunk for transcription...")
         transcription = self.transcribe_audio(audio_data)
 
@@ -77,26 +72,36 @@ class WhisperTransc:
         Stop recording audio.
         """
         self.is_recording = False
-        if self.recording:
-            print("Processing remaining audio...")
-            remaining_audio = np.concatenate(self.recording, axis=0)
-            transcription = self.transcribe_audio(remaining_audio)
-            print(f"Remaining transcription: {transcription}")
+        print("Stopping recording and processing remaining audio...")
+
+        while len(self.buffer) >= self.chunk_size:
+            # Extract the first chunk_size frames
+            chunk_data = self.buffer[: self.chunk_size]
+            self.process_chunk(chunk_data)
+            start_idx = self.chunk_size - self.overlap_frames
+            self.buffer = self.buffer[start_idx:]
+
+        if len(self.buffer) > 0:
+            print("Processing leftover audio (smaller than one chunk)...")
+            transcription = self.transcribe_audio(self.buffer)
             if hasattr(self, "update_callback"):
                 self.update_callback(transcription)
+
+        self.buffer = np.array([], dtype=np.float32)
 
     def transcribe_audio(self, audio_data):
         """
         Transcribe a given audio data array using the Whisper pipeline without file I/O.
         """
         try:
-            # Resample the audio data to 16 kHz (required by Whisper)
             audio_data_resampled = librosa.resample(
                 y=audio_data.flatten(), orig_sr=self.fs, target_sr=16000
             )
 
             # Whisper expects the audio input as a numpy array normalized to the range [-1, 1]
-            transcription = self.pipeline(audio_data_resampled)["text"]
+            transcription = self.pipeline(inputs=audio_data_resampled, batch_size=8)[
+                "text"
+            ]
             return transcription
         except Exception as e:
             print(f"Error during transcription: {e}")
