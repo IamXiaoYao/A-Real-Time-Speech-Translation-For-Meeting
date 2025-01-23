@@ -93,7 +93,7 @@ function App() {
             </div>
             <h1 className="title">VoiceFlow</h1>
             <p className="subtitle">
-              Transform your speech into text instantly
+              Transform your meeting speech into text instantly 
             </p>
           </header>
 

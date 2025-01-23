@@ -37,7 +37,7 @@ class WhisperTransc:
         Ensures proper JSON formatting for Node.js
         """
         try:
-            print(json.dumps(data))  # Always output valid JSON
+            print(json.dumps(data))  
         except Exception as e:
             print(json.dumps({"error": f"JSON Encoding Error: {str(e)}"}))
         sys.stdout.flush()
@@ -63,7 +63,7 @@ class WhisperTransc:
                 dtype="float32",
             ):
                 while self.is_recording:
-                    sd.sleep(100)  # Allow other commands to be processed
+                    sd.sleep(100)  
 
         thread = threading.Thread(target=recording_thread, daemon=True)
         thread.start()
@@ -86,7 +86,7 @@ class WhisperTransc:
         Transcribe this chunk of audio_data and send it as output.
         """
         transcription = self.transcribe_audio(audio_data)
-        # Avoid sending duplicate transcriptions
+        
         if transcription and transcription.strip():
             if (
                 not hasattr(self, "last_transcription")
@@ -94,7 +94,7 @@ class WhisperTransc:
             ):
                 self.safe_print({"result": transcription})
                 self.last_transcription = (
-                    transcription  # Store last result to avoid repeats
+                    transcription  
                 )
 
     def stop_recording(self):
