@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Mic, StopCircle, Upload, RefreshCw, FileText } from "lucide-react";
+import { Mic, StopCircle, Upload } from "lucide-react";
+import React, { useEffect, useState } from "react";
 
 function App() {
   const [text, setText] = useState(""); // For transcription text
@@ -13,8 +13,9 @@ function App() {
       if (response.error) {
         setError(response.error);
       } else if (response.result) {
-        // Append the new transcription to the existing text
-        setTranscription((prev) => `${prev}\n${response.result}`);
+        setTranscription((prev) => {
+          return prev.includes(response.result) ? prev : `${prev}\n${response.result}`;
+        });
       }
     };
 
@@ -28,7 +29,7 @@ function App() {
     // Cleanup listener on component unmount
     return () => {
       if (window.pythonAPI) {
-        window.pythonAPI.onResponse(() => {}); // Clear the listener
+        window.pythonAPI.onResponse(() => { }); // Clear the listener
       }
     };
   }, []);
@@ -51,7 +52,7 @@ function App() {
   const handleUpload = async () => {
     setError("");
     try {
-      const file = await window.showOpenFilePicker({
+      const [fileHandle] = await window.showOpenFilePicker({
         types: [
           {
             description: "Audio Files",
@@ -63,15 +64,23 @@ function App() {
         multiple: false,
       });
 
-      if (file.length > 0) {
-        const filePath = await file[0].getFile();
-        window.pythonAPI.call("transcribe", [filePath.path]);
-      }
+      if (!fileHandle) return;
+
+      const file = await fileHandle.getFile();
+      const reader = new FileReader();
+
+      reader.onload = async () => {
+        const base64Audio = reader.result.split(",")[1]; // Extract base64 data
+        window.pythonAPI.call("transcribe_base64", [base64Audio, file.type]);
+      };
+
+      reader.readAsDataURL(file); // Convert to base64
     } catch (err) {
       console.error("Error uploading file:", err);
       setError("Failed to upload the file.");
     }
   };
+
 
   return (
     <div className="app">

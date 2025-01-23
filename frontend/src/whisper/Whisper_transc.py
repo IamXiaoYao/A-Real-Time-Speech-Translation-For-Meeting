@@ -1,11 +1,15 @@
+import base64
+import io
+import json
+import sys
+import threading
+
 import librosa
 import numpy as np
 import sounddevice as sd
 import torch
-import sys
-import json
-import threading
 from transformers import pipeline
+
 
 class WhisperTransc:
     def __init__(self, model_name="openai/whisper-base.en"):
@@ -82,8 +86,16 @@ class WhisperTransc:
         Transcribe this chunk of audio_data and send it as output.
         """
         transcription = self.transcribe_audio(audio_data)
-        if transcription and transcription.strip():  # Ensure no empty duplicate messages
-            self.safe_print({"result": transcription})
+        # Avoid sending duplicate transcriptions
+        if transcription and transcription.strip():
+            if (
+                not hasattr(self, "last_transcription")
+                or self.last_transcription != transcription
+            ):
+                self.safe_print({"result": transcription})
+                self.last_transcription = (
+                    transcription  # Store last result to avoid repeats
+                )
 
     def stop_recording(self):
         """
@@ -118,23 +130,32 @@ class WhisperTransc:
             audio_data_resampled = librosa.resample(
                 y=audio_data.flatten(), orig_sr=self.fs, target_sr=16000
             )
-            transcription = self.pipeline(inputs=audio_data_resampled, batch_size=8)["text"]
+            transcription = self.pipeline(inputs=audio_data_resampled, batch_size=8)[
+                "text"
+            ]
             return transcription
         except Exception as e:
             self.safe_print({"error": f"Error during transcription: {str(e)}"})
             return "Transcription error occurred."
 
-    def transcribe(self, audio_file_path):
+    def transcribe_base64(self, base64_audio, file_type):
         """
-        Transcribe an uploaded audio file.
+        Transcribe an audio file sent as a Base64 string.
         """
         try:
-            audio_input, _ = librosa.load(audio_file_path, sr=16000)
+            audio_bytes = base64.b64decode(base64_audio)
+            audio_buffer = io.BytesIO(audio_bytes)
+
+            # Load the audio data using librosa
+            audio_input, _ = librosa.load(audio_buffer, sr=16000)
+
+            # Run Whisper transcription
             transcription = self.pipeline(audio_input, batch_size=8)["text"]
             return transcription
         except Exception as e:
-            self.safe_print({"error": f"Error transcribing audio file: {str(e)}"})
+            self.safe_print({"error": f"Error processing Base64 audio: {str(e)}"})
             return "Error processing the audio file."
+
 
 def main():
     whisper = WhisperTransc()
@@ -160,8 +181,10 @@ def main():
                     whisper.safe_print({"error": f"Command {command} is not callable."})
             else:
                 whisper.safe_print({"error": f"Command {command} not found."})
+
         except Exception as e:
             whisper.safe_print({"error": str(e)})
+
 
 if __name__ == "__main__":
     main()
