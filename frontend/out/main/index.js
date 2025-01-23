@@ -7,7 +7,6 @@ const { spawn } = require("child_process");
 let mainWindow;
 function createWindow() {
   mainWindow = new electron.BrowserWindow({
-    // ✅ Assign to global mainWindow
     width: 900,
     height: 670,
     minWidth: 900,
@@ -114,12 +113,15 @@ electron.app.whenReady().then(() => {
   createWindow();
   const pythonProcess = spawn("python", ["src/whisper/Whisper_transc.py"]);
   pythonProcess.stdout.on("data", (data) => {
-    const message = data.toString();
+    const message = data.toString().trim();
     console.log("Python Output:", message);
-    if (mainWindow) {
-      mainWindow.webContents.send("python-response", JSON.parse(message));
-    } else {
-      console.error("mainWindow is not available to send data.");
+    try {
+      const jsonData = JSON.parse(message);
+      if (mainWindow && jsonData.result) {
+        mainWindow.webContents.send("python-response", jsonData);
+      }
+    } catch (error) {
+      console.error("JSON Parse Error:", error.message, "Received:", message);
     }
   });
   pythonProcess.stderr.on("data", (data) => {
