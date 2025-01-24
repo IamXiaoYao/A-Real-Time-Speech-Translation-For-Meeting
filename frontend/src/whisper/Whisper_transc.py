@@ -37,7 +37,7 @@ class WhisperTransc:
         Ensures proper JSON formatting for Node.js
         """
         try:
-            print(json.dumps(data))  
+            print(json.dumps(data))
         except Exception as e:
             print(json.dumps({"error": f"JSON Encoding Error: {str(e)}"}))
         sys.stdout.flush()
@@ -63,7 +63,7 @@ class WhisperTransc:
                 dtype="float32",
             ):
                 while self.is_recording:
-                    sd.sleep(100)  
+                    sd.sleep(100)
 
         thread = threading.Thread(target=recording_thread, daemon=True)
         thread.start()
@@ -86,16 +86,14 @@ class WhisperTransc:
         Transcribe this chunk of audio_data and send it as output.
         """
         transcription = self.transcribe_audio(audio_data)
-        
+
         if transcription and transcription.strip():
             if (
                 not hasattr(self, "last_transcription")
                 or self.last_transcription != transcription
             ):
                 self.safe_print({"result": transcription})
-                self.last_transcription = (
-                    transcription  
-                )
+                self.last_transcription = transcription
 
     def stop_recording(self):
         """
@@ -121,6 +119,7 @@ class WhisperTransc:
                 self.safe_print({"result": transcription})
 
         self.buffer = np.array([], dtype=np.float32)
+        self.safe_print({"status": "buffer cleared"})
 
     def transcribe_audio(self, audio_data):
         """
@@ -149,7 +148,6 @@ class WhisperTransc:
             # Load the audio data using librosa
             audio_input, _ = librosa.load(audio_buffer, sr=16000)
 
-            # Run Whisper transcription
             transcription = self.pipeline(audio_input, batch_size=8)["text"]
             return transcription
         except Exception as e:

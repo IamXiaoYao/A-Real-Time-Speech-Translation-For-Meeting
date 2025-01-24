@@ -1,4 +1,4 @@
-import { Mic, StopCircle, Upload } from "lucide-react";
+import { Clipboard, Mic, StopCircle, Trash2, Upload } from "lucide-react";
 import React, { useEffect, useState } from "react";
 
 function App() {
@@ -6,9 +6,20 @@ function App() {
   const [isRecording, setIsRecording] = useState(false); // Recording state
   const [transcription, setTranscription] = useState(""); // For real-time updates
   const [error, setError] = useState(""); // For error handling
+  const [selectedLanguage, setSelectedLanguage] = useState("en"); // Default to English
+  const [copied, setCopied] = useState(false); // Track copy status
+
+  // Available languages
+  const languages = [
+    { code: "en", name: "English" },
+    { code: "fr", name: "French" },
+    { code: "zh", name: "Chinese" },
+    { code: "es", name: "Spanish" },
+    { code: "de", name: "German" },
+    { code: "ja", name: "Japanese" },
+  ];
 
   useEffect(() => {
-    // Set up a listener for Python's responses
     const handlePythonResponse = (response) => {
       if (response.error) {
         setError(response.error);
@@ -19,35 +30,35 @@ function App() {
       }
     };
 
-    // Add the response listener
     if (window.pythonAPI) {
       window.pythonAPI.onResponse(handlePythonResponse);
     } else {
       console.error("pythonAPI is not available");
     }
 
-    // Cleanup listener on component unmount
     return () => {
       if (window.pythonAPI) {
-        window.pythonAPI.onResponse(() => { }); // Clear the listener
+        window.pythonAPI.onResponse(() => { });
       }
     };
   }, []);
 
   const handleRecord = () => {
     setError("");
-    setTranscription("");
     if (isRecording) {
-      // Stop recording
       setIsRecording(false);
       window.pythonAPI.call("stop_recording");
+
+      // setTimeout(() => {
+      //   setTranscription("");
+      // }, 8000);
     } else {
-      // Start recording
       setIsRecording(true);
-      setText("");
+      // setTranscription("");
       window.pythonAPI.call("record_audio");
     }
   };
+
 
   const handleUpload = async () => {
     setError("");
@@ -70,17 +81,27 @@ function App() {
       const reader = new FileReader();
 
       reader.onload = async () => {
-        const base64Audio = reader.result.split(",")[1]; // Extract base64 data
+        const base64Audio = reader.result.split(",")[1];
         window.pythonAPI.call("transcribe_base64", [base64Audio, file.type]);
       };
 
-      reader.readAsDataURL(file); // Convert to base64
+      reader.readAsDataURL(file);
     } catch (err) {
       console.error("Error uploading file:", err);
       setError("Failed to upload the file.");
     }
   };
 
+  const handleClearText = () => {
+    setTranscription("");
+  };
+
+  const handleCopyText = () => {
+    navigator.clipboard.writeText(transcription).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // Reset "Copied!" after 2 seconds
+    });
+  };
 
   return (
     <div className="app">
@@ -93,9 +114,21 @@ function App() {
             </div>
             <h1 className="title">VoiceFlow</h1>
             <p className="subtitle">
-              Transform your meeting speech into text instantly 
+              Transform your meeting speech into text instantly
             </p>
           </header>
+
+          {/* Language Selection - Moved to Top */}
+          <div className="language-selector">
+            <label>Select Output Language: </label>
+            <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)}>
+              {languages.map((lang) => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {/* Main Content */}
           <div className="main-content">
@@ -110,6 +143,7 @@ function App() {
               )}
             </div>
 
+            {/* Scrollable Transcription Box */}
             <textarea
               value={transcription || "Your transcription will appear here..."}
               readOnly
@@ -122,12 +156,17 @@ function App() {
             {/* Controls */}
             <div className="controls">
               <div className="controls-left">
-                <button
-                  onClick={handleRecord}
-                  className={`btn btn-primary ${isRecording ? "recording" : ""}`}
-                >
+                <button onClick={handleRecord} className={`btn btn-primary ${isRecording ? "recording" : ""}`}>
                   {isRecording ? <StopCircle /> : <Mic />}
                   {isRecording ? "Stop" : "Start Recording"}
+                </button>
+                <button onClick={handleClearText} className="btn btn-icon">
+                  <Trash2 />
+                  <span>Clear All</span>
+                </button>
+                <button onClick={handleCopyText} className="btn btn-secondary">
+                  <Clipboard />
+                  <span>{copied ? "Copied!" : "Copy All"}</span>
                 </button>
               </div>
 
