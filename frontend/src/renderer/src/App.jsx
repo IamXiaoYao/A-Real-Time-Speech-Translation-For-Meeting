@@ -9,14 +9,13 @@ function App() {
   const [selectedLanguage, setSelectedLanguage] = useState("en"); // Default to English
   const [copied, setCopied] = useState(false); // Track copy status
 
-  // Available languages
   const languages = [
     { code: "en", name: "English" },
-    { code: "fr", name: "French" },
+    { code: "fra", name: "French" },
     { code: "zh", name: "Chinese" },
-    { code: "es", name: "Spanish" },
+    { code: "spa", name: "Spanish" },
     { code: "de", name: "German" },
-    { code: "ja", name: "Japanese" },
+    { code: "jp", name: "Japanese" },
   ];
 
   useEffect(() => {
@@ -45,16 +44,12 @@ function App() {
 
   const handleRecord = () => {
     setError("");
+    setSelectedLanguage("en");
     if (isRecording) {
       setIsRecording(false);
       window.pythonAPI.call("stop_recording");
-
-      // setTimeout(() => {
-      //   setTranscription("");
-      // }, 8000);
     } else {
       setIsRecording(true);
-      // setTranscription("");
       window.pythonAPI.call("record_audio");
     }
   };
@@ -62,6 +57,7 @@ function App() {
 
   const handleUpload = async () => {
     setError("");
+    setSelectedLanguage("en");
     try {
       const [fileHandle] = await window.showOpenFilePicker({
         types: [
@@ -120,7 +116,7 @@ function App() {
 
           {/* Language Selection - Moved to Top */}
           <div className="language-selector">
-            <label>Select Output Language: </label>
+            <label>Output Language: </label>
             <select value={selectedLanguage} onChange={(e) => setSelectedLanguage(e.target.value)}>
               {languages.map((lang) => (
                 <option key={lang.code} value={lang.code}>
